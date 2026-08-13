@@ -109,3 +109,24 @@ func TestDiscoverRejectsInvalidConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestDiscoverUnicastUsesPhaseTimeout(t *testing.T) {
+	hosts := make([]net.IP, 64)
+	for index := range hosts {
+		hosts[index] = net.IPv4(192, 0, 2, byte(index+1))
+	}
+	cfg := Config{
+		Hosts:   hosts,
+		Timeout: 40 * time.Millisecond,
+		Workers: 4,
+	}
+
+	started := time.Now()
+	_, err := discoverUnicast(context.Background(), cfg, hosts)
+	if err != nil {
+		t.Fatalf("discoverUnicast returned error: %v", err)
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("discoverUnicast took %s, want a single phase budget", elapsed)
+	}
+}
