@@ -33,6 +33,22 @@ func TestParseCIDRHonorsLimit(t *testing.T) {
 	}
 }
 
+func TestParseCIDRSingleAddress(t *testing.T) {
+	network, hosts, err := ParseCIDR("203.0.113.7/32", 1)
+	if err != nil {
+		t.Fatalf("ParseCIDR() error = %v", err)
+	}
+	if got, want := network.String(), "203.0.113.7/32"; got != want {
+		t.Fatalf("network = %q, want %q", got, want)
+	}
+	if len(hosts) != 1 {
+		t.Fatalf("len(hosts) = %d, want 1", len(hosts))
+	}
+	if got, want := hosts[0].String(), "203.0.113.7"; got != want {
+		t.Fatalf("hosts[0] = %q, want %q", got, want)
+	}
+}
+
 func TestParseCIDRExpandsIPv4Network(t *testing.T) {
 	network, hosts, err := ParseCIDR("192.0.2.4/30", 4)
 	if err != nil {
@@ -66,7 +82,9 @@ func TestParseCIDRRejectsInvalidInputs(t *testing.T) {
 	}{
 		{name: "IPv6", raw: "2001:db8::/126", maxHosts: 4},
 		{name: "host limit", raw: "192.0.2.0/29", maxHosts: 4},
+		{name: "all IPv4 addresses exceed limit", raw: "0.0.0.0/0", maxHosts: 1},
 		{name: "zero limit", raw: "192.0.2.0/30", maxHosts: 0},
+		{name: "negative limit", raw: "192.0.2.0/30", maxHosts: -1},
 		{name: "invalid CIDR", raw: "not-a-cidr", maxHosts: 256},
 	}
 

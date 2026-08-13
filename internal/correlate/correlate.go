@@ -51,7 +51,8 @@ func Build(results []model.QueryResult, cidr *net.IPNet, ports interface{ Contai
 		for _, ptr := range ptrs {
 			instanceKey := fqdnKey(ptr.rr.Ptr)
 			for _, srv := range idx.srvs[instanceKey] {
-				if !ports.Contains(srv.rr.Port) {
+				isDeviceInfo := srv.rr.Port == 0 && strings.EqualFold(serviceType, "device-info")
+				if !isDeviceInfo && !ports.Contains(srv.rr.Port) {
 					continue
 				}
 
@@ -280,7 +281,7 @@ func minimumTTL(first uint32, rest ...uint32) uint32 {
 }
 
 func serviceKey(service model.Service) string {
-	return fqdnKey(service.Instance) + "|" + fqdnKey(service.Hostname) + "|" + service.Protocol + "|" + strconv.FormatUint(uint64(service.Port), 10)
+	return fqdnKey(service.Type) + "|" + fqdnKey(service.Instance) + "|" + fqdnKey(service.Hostname) + "|" + service.Protocol + "|" + strconv.FormatUint(uint64(service.Port), 10)
 }
 
 func addIPs(target map[string]net.IP, ips []net.IP) {

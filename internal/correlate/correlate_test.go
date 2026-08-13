@@ -14,6 +14,12 @@ func (p portSet) Contains(port uint16) bool {
 	return p[port]
 }
 
+type allPortSet struct{}
+
+func (allPortSet) Contains(uint16) bool {
+	return true
+}
+
 func TestBuildQNAP(t *testing.T) {
 	_, cidr, err := net.ParseCIDR("192.168.1.0/24")
 	if err != nil {
@@ -34,9 +40,9 @@ func TestBuildQNAP(t *testing.T) {
 	if len(asset.IPv6) != 1 || asset.IPv6[0].String() != "fe80::265e:beff:fe69:a313" {
 		t.Fatalf("IPv6 = %v", asset.IPv6)
 	}
-	// With port 5000 only, should get http and qdiscover services
-	if len(asset.Services) != 2 {
-		t.Fatalf("service count = %d, want 2 (http + qdiscover)", len(asset.Services))
+	// Port 5000 services plus the portless device-info metadata service.
+	if len(asset.Services) != 3 {
+		t.Fatalf("service count = %d, want 3 (device-info + http + qdiscover)", len(asset.Services))
 	}
 	// Check that qdiscover service is present
 	qdiscoverFound := false
@@ -78,16 +84,16 @@ func TestBuildFiltersPort(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// With port 445 only, should get smb service only
+	// Port 445 service plus the portless device-info metadata service.
 	assets := correlate.Build(testfixture.BuildQNAPFixture(), cidr, portSet{445: true})
 	if len(assets) != 1 {
 		t.Fatalf("asset count = %d, want 1", len(assets))
 	}
-	if len(assets[0].Services) != 1 {
-		t.Fatalf("service count = %d, want 1 (smb only)", len(assets[0].Services))
+	if len(assets[0].Services) != 2 {
+		t.Fatalf("service count = %d, want 2 (device-info + smb)", len(assets[0].Services))
 	}
-	if assets[0].Services[0].Type != "smb" {
-		t.Fatalf("got service type %q, want smb", assets[0].Services[0].Type)
+	if assets[0].Services[1].Type != "smb" {
+		t.Fatalf("got service type %q, want smb", assets[0].Services[1].Type)
 	}
 }
 
@@ -100,7 +106,7 @@ func TestBuildDeduplicatesRecords(t *testing.T) {
 	results = append(results, results[0])
 
 	assets := correlate.Build(results, cidr, portSet{5000: true})
-	if len(assets) != 1 || len(assets[0].Services) != 2 || len(assets[0].IPv4) != 1 || len(assets[0].IPv6) != 1 {
+	if len(assets) != 1 || len(assets[0].Services) != 3 || len(assets[0].IPv4) != 1 || len(assets[0].IPv6) != 1 || len(assets[0].PTR) != 3 {
 		t.Fatalf("duplicate records leaked into output: %#v", assets)
 	}
 }
@@ -111,13 +117,7 @@ func TestBuildAllPorts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Port set that allows all ports including 0
-	allPorts := portSet{}
-	for i := uint16(0); i <= 65535; i++ {
-		allPorts[i] = true
-	}
-
-	assets := correlate.Build(testfixture.BuildQNAPFixture(), cidr, allPorts)
+	assets := correlate.Build(testfixture.BuildQNAPFixture(), cidr, allPortSet{})
 	if len(assets) != 1 {
 		t.Fatalf("asset count = %d, want 1", len(assets))
 	}

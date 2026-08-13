@@ -13,9 +13,6 @@ import (
 // the requirement example.
 func BuildQNAPFixture() []model.QueryResult {
 	source := net.ParseIP("192.168.1.20")
-	ipv4 := net.ParseIP("192.168.1.20")
-	ipv6 := net.ParseIP("fe80::265e:beff:fe69:a313")
-
 	hdr := func(name string, rrtype uint16, ttl uint32) dns.RR_Header {
 		return dns.RR_Header{
 			Name:   name,
@@ -24,10 +21,6 @@ func BuildQNAPFixture() []model.QueryResult {
 			Ttl:    ttl,
 		}
 	}
-
-	// Common A/AAAA records
-	a := &dns.A{Hdr: hdr("slw-nas.local.", dns.TypeA, 10), A: ipv4}
-	aaaa := &dns.AAAA{Hdr: hdr("slw-nas.local.", dns.TypeAAAA, 10), AAAA: ipv6}
 
 	// workstation (port 9) - instance name with MAC address in brackets
 	workstationInstance := "slw-nas [24:5e:be:69:a3:13]._workstation._tcp.local."
@@ -47,19 +40,6 @@ func BuildQNAPFixture() []model.QueryResult {
 	smbSRV := &dns.SRV{Hdr: hdr(smbInstance, dns.TypeSRV, 10), Priority: 0, Weight: 0, Port: 445, Target: "slw-nas.local."}
 	smbTXT := &dns.TXT{Hdr: hdr(smbInstance, dns.TypeTXT, 10), Txt: []string{}}
 
-	// qdiscover (port 5000)
-	qdiscoverInstance := "slw-nas._qdiscover._tcp.local."
-	qdiscoverPTR := &dns.PTR{Hdr: hdr("_qdiscover._tcp.local.", dns.TypePTR, 10), Ptr: qdiscoverInstance}
-	qdiscoverSRV := &dns.SRV{Hdr: hdr(qdiscoverInstance, dns.TypeSRV, 10), Priority: 0, Weight: 0, Port: 5000, Target: "slw-nas.local."}
-	qdiscoverTXT := &dns.TXT{Hdr: hdr(qdiscoverInstance, dns.TypeTXT, 10), Txt: []string{
-		"accessType=https",
-		"accessPort=86",
-		"model=TS-X64",
-		"displayModel=TS-464C",
-		"fwVer=5.2.9",
-		"fwBuildNum=20260214",
-	}}
-
 	// afpovertcp (port 548)
 	afpInstance := "slw-nas (AFP)._afpovertcp._tcp.local."
 	afpPTR := &dns.PTR{Hdr: hdr("_afpovertcp._tcp.local.", dns.TypePTR, 10), Ptr: afpInstance}
@@ -73,13 +53,17 @@ func BuildQNAPFixture() []model.QueryResult {
 	deviceInfoTXT := &dns.TXT{Hdr: hdr(deviceInfoInstance, dns.TypeTXT, 10), Txt: []string{"model=Xserve"}}
 
 	rrs := []dns.RR{
+		mustRR("_services._dns-sd._udp.local. 10 IN PTR _qdiscover._tcp.local."),
 		workstationPTR, workstationSRV, workstationTXT,
 		httpPTR, httpSRV, httpTXT,
 		smbPTR, smbSRV, smbTXT,
-		qdiscoverPTR, qdiscoverSRV, qdiscoverTXT,
+		mustRR("_qdiscover._tcp.local. 10 IN PTR slw-nas._qdiscover._tcp.local."),
+		mustRR("slw-nas._qdiscover._tcp.local. 10 IN SRV 0 0 5000 slw-nas.local."),
+		mustRR(`slw-nas._qdiscover._tcp.local. 10 IN TXT "accessType=https" "accessPort=86" "model=TS-X64" "displayModel=TS-464C" "fwVer=5.2.9" "fwBuildNum=20260214"`),
 		afpPTR, afpSRV, afpTXT,
 		deviceInfoPTR, deviceInfoSRV, deviceInfoTXT,
-		a, aaaa,
+		mustRR("slw-nas.local. 10 IN A 192.168.1.20"),
+		mustRR("slw-nas.local. 10 IN AAAA fe80::265e:beff:fe69:a313"),
 	}
 
 	return []model.QueryResult{
@@ -90,4 +74,12 @@ func BuildQNAPFixture() []model.QueryResult {
 // QNAP is the stable fixture entry point used by package-level regression tests.
 func QNAP() []model.QueryResult {
 	return BuildQNAPFixture()
+}
+
+func mustRR(raw string) dns.RR {
+	rr, err := dns.NewRR(raw)
+	if err != nil {
+		panic(err)
+	}
+	return rr
 }

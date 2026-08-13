@@ -122,6 +122,9 @@ func exchangeQueries(
 	}
 
 	for _, name := range uniqueNames(names) {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		wire, err := newPTRQuery(name).Pack()
 		if err != nil {
 			return nil, fmt.Errorf("pack PTR query %q: %w", name, err)

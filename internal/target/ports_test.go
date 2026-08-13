@@ -37,6 +37,34 @@ func TestParsePortsTrimWhitespace(t *testing.T) {
 	}
 }
 
+func TestParsePortsMaxRangeDoesNotWrap(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want []uint16
+	}{
+		{name: "range ending at max", raw: "65534-65535", want: []uint16{65534, 65535}},
+		{name: "single max port range", raw: "65535-65535", want: []uint16{65535}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ports, err := ParsePorts(tt.raw)
+			if err != nil {
+				t.Fatalf("ParsePorts(%q) error = %v", tt.raw, err)
+			}
+			for _, port := range tt.want {
+				if !ports.Contains(port) {
+					t.Errorf("Contains(%d) = false, want true", port)
+				}
+			}
+			if ports.Contains(0) {
+				t.Error("Contains(0) = true, range wrapped past 65535")
+			}
+		})
+	}
+}
+
 func TestParsePortsRejectsInvalidExpressions(t *testing.T) {
 	tests := []string{
 		"",          // empty string
